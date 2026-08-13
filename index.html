@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Match Desk — Internship Allocation Engine</title>
+<meta name="description" content="Match Desk — an internship allocation engine that matches students to internships by skills and preferences.">
+<meta name="theme-color" content="#4B22B8">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg: #F6F2FE;
+    --surface: #FFFFFF;
+    --ink: #1D1233;
+    --ink-soft: #6B6285;
+    --line: #E7DFF7;
+
+    --violet: #6C3CE9;
+    --violet-deep: #4B22B8;
+    --violet-soft: #EFE7FF;
+    --coral: #FF5D73;
+    --coral-soft: #FFE7EA;
+    --sun: #FFB300;
+    --sun-soft: #FFF3D6;
+    --mint: #00B79A;
+    --mint-soft: #D9F7F1;
+    --blue: #2C5FD9;
+    --blue-soft: #E3EEFF;
+
+    --radius: 14px;
+    --hero-gradient: linear-gradient(120deg, #4B22B8 0%, #6C3CE9 32%, #FF5D73 70%, #FFB300 100%);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Space Grotesk', sans-serif;
+    letter-spacing:-0.01em;
+  }
+  .mono{ font-family:'IBM Plex Mono', monospace; }
+
+  /* Shell */
+  .shell{ display:flex; min-height:100vh; }
+  .sidebar{
+    width:236px; flex-shrink:0; color:#F1EBFF;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(255,93,115,.35), transparent 55%),
+      radial-gradient(circle at 90% 90%, rgba(255,179,0,.22), transparent 50%),
+      linear-gradient(180deg, #1B0F3D, #12082B 70%);
+    padding:28px 18px; display:flex; flex-direction:column; gap:6px;
+  }
+  .brand{ display:flex; align-items:center; gap:10px; padding:0 6px 24px; }
+  .brand-mark{
+    width:34px; height:34px; border-radius:10px;
+    background:linear-gradient(135deg, var(--coral), var(--violet) 55%, var(--sun));
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Space Grotesk'; font-weight:700; font-size:16px; color:#fff;
+    box-shadow:0 6px 16px rgba(255,93,115,.35);
+  }
+  .brand-name{ font-family:'Space Grotesk'; font-weight:600; font-size:15px; }
+  .brand-sub{ font-size:10.5px; color:#B4A6E8; letter-spacing:.04em; text-transform:uppercase; }
+  .nav-item{
+    display:flex; align-items:center; gap:10px;
+    padding:10px 12px; border-radius:9px; cursor:pointer;
+    font-size:13.5px; color:#C9BEEE; transition:background .15s, color .15s, transform .1s;
+    border:none; background:transparent; width:100%; text-align:left;
+    font-family:'IBM Plex Sans';
+  }
+  .nav-item:hover{ background:rgba(255,255,255,.08); color:#fff; }
+  .nav-item.active{ background:linear-gradient(90deg, var(--coral), var(--violet)); color:#fff; box-shadow:0 4px 14px rgba(255,93,115,.3); }
+  .nav-num{ font-family:'IBM Plex Mono'; font-size:10.5px; opacity:.65; width:16px; }
+  .sidebar-footer{ margin-top:auto; font-size:10.5px; color:#8B7FBE; line-height:1.5; padding:0 6px; }
+
+  .main{ flex:1; padding:32px 40px 60px; max-width:1180px; }
+  .page-head{ margin-bottom:26px; }
+  .eyebrow{ font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--coral); font-weight:700; margin-bottom:6px; }
+  .page-head h1{ font-size:27px; margin:0 0 6px; }
+  .page-head p{ color:var(--ink-soft); font-size:13.5px; margin:0; max-width:640px; }
+
+  /* Hero banner (dashboard only) */
+  .hero{
+    background:var(--hero-gradient);
+    border-radius:18px; padding:26px 28px; margin-bottom:22px; color:#fff;
+    position:relative; overflow:hidden;
+  }
+  .hero::after{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(circle at 85% 20%, rgba(255,255,255,.18), transparent 45%);
+  }
+  .hero .eyebrow{ color:#FFE1C4; }
+  .hero h1{ color:#fff; margin:0 0 8px; font-size:26px; }
+  .hero p{ color:#EDE3FF; margin:0; max-width:560px; font-size:13.5px; position:relative; z-index:1; }
+
+  /* Cards / grid */
+  .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:26px; }
+  .stat-card{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px 18px; position:relative; overflow:hidden;
+  }
+  .stat-card::before{ content:""; position:absolute; top:0; left:0; right:0; height:4px; background:var(--accent, var(--violet)); }
+  .stat-card .n{ font-family:'Space Grotesk'; font-size:27px; font-weight:700; background:linear-gradient(90deg, var(--accent, var(--violet)), var(--ink)); -webkit-background-clip:text; background-clip:text; color:var(--accent, var(--violet)); }
+  .stat-card .l{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+
+  .panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:22px; margin-bottom:20px; box-shadow:0 1px 2px rgba(75,34,184,.03); }
+  .panel h3{ font-size:15px; margin:0 0 14px; display:flex; align-items:center; justify-content:space-between; }
+  .panel h3 .tag{ font-family:'IBM Plex Mono'; font-size:10.5px; color:var(--ink-soft); font-weight:400; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--ink-soft); padding:8px 10px; border-bottom:1px solid var(--line); font-weight:600; }
+  td{ padding:10px 10px; border-bottom:1px solid #F1ECFB; vertical-align:top; }
+  tr:last-child td{ border-bottom:none; }
+  tr:hover td{ background:#FBF9FF; }
+
+  .pill{ display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-family:'IBM Plex Mono'; font-weight:600; }
+  .pill.skill{ margin:2px 4px 2px 0; }
+  .pill.matched{ background:var(--mint-soft); color:var(--mint); }
+  .pill.missing{ background:var(--coral-soft); color:var(--coral); }
+
+  .avatar{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:30px; height:30px; border-radius:50%; color:#fff; font-weight:700; font-size:12px;
+    font-family:'Space Grotesk'; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.12);
+  }
+  .name-row{ display:flex; align-items:center; gap:10px; }
+
+  .btn{
+    font-family:'IBM Plex Sans'; font-weight:600; font-size:13px; cursor:pointer;
+    border-radius:8px; padding:9px 16px; border:1px solid transparent; transition:.15s;
+  }
+  .btn-primary{ background:linear-gradient(90deg, var(--violet), var(--coral)); color:#fff; box-shadow:0 4px 14px rgba(108,60,233,.28); }
+  .btn-primary:hover{ filter:brightness(1.06); transform:translateY(-1px); }
+  .btn-primary:disabled{ filter:none; transform:none; }
+  .btn-ghost{ background:transparent; border:1px solid var(--line); color:var(--ink); }
+  .btn-ghost:hover{ border-color:var(--violet); color:var(--violet); }
+  .btn-danger{ background:transparent; color:var(--coral); border:1px solid var(--coral-soft); font-size:11.5px; padding:4px 9px;}
+  .btn-danger:hover{ background:var(--coral-soft); }
+  .btn-row{ display:flex; gap:10px; flex-wrap:wrap; }
+
+  input, select, textarea{
+    font-family:'IBM Plex Sans'; font-size:13px; padding:9px 11px;
+    border:1px solid var(--line); border-radius:8px; background:#fff; color:var(--ink); width:100%;
+  }
+  input:focus, select:focus, textarea:focus{ outline:none; border-color:var(--violet); box-shadow:0 0 0 3px var(--violet-soft); }
+  label{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.03em; display:block; margin-bottom:4px; }
+  .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px 14px; margin-bottom:14px; }
+  .form-grid .full{ grid-column:1/-1; }
+
+  .empty{ text-align:center; padding:34px 10px; color:var(--ink-soft); }
+  .empty .glyph{ font-size:26px; margin-bottom:6px; }
+
+  .score-bar{ width:100%; height:7px; background:#F0EBFA; border-radius:4px; overflow:hidden; margin-top:5px;}
+  .score-bar > div{ height:100%; background:linear-gradient(90deg, var(--mint), var(--blue)); border-radius:4px; }
+
+  .badge-status{ font-size:11px; font-family:'IBM Plex Mono'; padding:4px 9px; border-radius:6px; font-weight:700; }
+  .badge-allocated{ background:var(--mint-soft); color:var(--mint); }
+  .badge-unallocated{ background:var(--coral-soft); color:var(--coral); }
+
+  .file-drop{
+    border:1.5px dashed var(--line); border-radius:var(--radius); padding:24px;
+    text-align:center; color:var(--ink-soft); font-size:12.5px; cursor:pointer; transition:.15s;
+    background:linear-gradient(180deg, #FBF9FF, #FFFFFF);
+  }
+  .file-drop:hover{ border-color:var(--violet); color:var(--violet); background:var(--violet-soft); }
+
+  .toast{
+    position:fixed; bottom:24px; right:24px;
+    background:linear-gradient(100deg, #1B0F3D, #3A1E7A); color:#fff;
+    padding:13px 18px; border-radius:10px; font-size:13px; box-shadow:0 10px 28px rgba(75,34,184,.35);
+    opacity:0; transform:translateY(8px); transition:.25s; pointer-events:none; z-index:50; max-width:320px;
+    border:1px solid rgba(255,255,255,.08);
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+
+  .engine-viz{ display:flex; align-items:center; justify-content:center; gap:60px; padding:30px 10px; flex-wrap:wrap; }
+  .node-col{ display:flex; flex-direction:column; gap:8px; }
+  .node{
+    font-family:'IBM Plex Mono'; font-size:11px; padding:7px 11px; border-radius:7px;
+    background:#F5F2FC; border:1px solid var(--line); opacity:0;
+    animation: fadein .4s ease forwards;
+  }
+  @keyframes fadein{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+  .col-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px; }
+  .arrow-col{ display:flex; align-items:center; font-size:18px; color:var(--coral); }
+
+  .hidden{ display:none !important; }
+  .small-note{ font-size:11.5px; color:var(--ink-soft); margin-top:6px; }
+  ::selection{ background:var(--violet-soft); }
+
+  /* Confetti */
+  .confetti-piece{
+    position:fixed; top:-12px; width:9px; height:14px; z-index:80; pointer-events:none;
+    animation: confetti-fall linear forwards;
+  }
+  @keyframes confetti-fall{
+    0%{ transform:translateY(0) rotate(0deg); opacity:1; }
+    100%{ transform:translateY(105vh) rotate(560deg); opacity:.9; }
+  }
+
+  /* Weights table accent chips */
+  .weight-chip{ display:inline-block; padding:3px 10px; border-radius:20px; font-family:'IBM Plex Mono'; font-size:12px; font-weight:700; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div>
+        <div class="brand-name">Match Desk</div>
+        <div class="brand-sub">Allocation Engine</div>
+      </div>
+    </div>
+    <button class="nav-item active" data-tab="dashboard"><span class="nav-num">01</span>Dashboard</button>
+    <button class="nav-item" data-tab="students"><span class="nav-num">02</span>Students</button>
+    <button class="nav-item" data-tab="internships"><span class="nav-num">03</span>Internships</button>
+    <button class="nav-item" data-tab="matching"><span class="nav-num">04</span>Run Matching</button>
+    <button class="nav-item" data-tab="results"><span class="nav-num">05</span>Results</button>
+    <button class="nav-item" data-tab="data"><span class="nav-num">06</span>Excel Backend</button>
+    <div class="sidebar-footer">
+      Skill-matching allocation runs entirely in your browser. Import / export .xlsx to persist data — no server required.
+    </div>
+  </div>
+
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page" id="page-dashboard">
+      <div class="hero">
+        <div class="eyebrow">Overview</div>
+        <h1>Allocation control room</h1>
+        <p>Track the pool of students and internships, and the outcome of the last matching run.</p>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card" style="--accent:var(--violet)"><div class="n mono" id="stat-students">0</div><div class="l">Students registered</div></div>
+        <div class="stat-card" style="--accent:var(--blue)"><div class="n mono" id="stat-internships">0</div><div class="l">Open positions</div></div>
+        <div class="stat-card" style="--accent:var(--mint)"><div class="n mono" id="stat-allocated">0</div><div class="l">Students allocated</div></div>
+        <div class="stat-card" style="--accent:var(--coral)"><div class="n mono" id="stat-rate">—</div><div class="l">Allocation rate</div></div>
+      </div>
+      <div class="panel">
+        <h3>Most in-demand skills <span class="tag">from open internships</span></h3>
+        <div id="skill-demand"></div>
+      </div>
+      <div class="panel">
+        <h3>Quick start</h3>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="goTab('students')">Add a student</button>
+          <button class="btn btn-ghost" onclick="goTab('internships')">Add an internship</button>
+          <button class="btn btn-ghost" onclick="goTab('data')">Import from Excel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="page hidden" id="page-students">
+      <div class="page-head">
+        <div class="eyebrow">02 — Talent pool</div>
+        <h1>Students</h1>
+        <p>Each student's skills and ranked preferences feed directly into the matching score.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Add a student</h3>
+        <div class="form-grid">
+          <div><label>Full name</label><input id="s-name" placeholder="e.g. Ananya Rao"></div>
+          <div><label>Email</label><input id="s-email" placeholder="ananya@college.edu"></div>
+          <div><label>CGPA (out of 10)</label><input id="s-cgpa" type="number" step="0.01" min="0" max="10" placeholder="8.4"></div>
+          <div><label>Branch / stream</label><input id="s-branch" placeholder="CSE, ECE, etc."></div>
+          <div class="full"><label>Skills (comma separated)</label><input id="s-skills" placeholder="Python, SQL, React, Data Analysis"></div>
+          <div class="full"><label>Preferred internships, ranked (comma separated titles — optional)</label><input id="s-prefs" placeholder="Frontend Intern, Data Analyst Intern"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addStudent()">Add student</button>
+      </div>
+
+      <div class="panel">
+        <h3>Registered students <span class="tag" id="student-count-tag"></span></h3>
+        <div id="students-table"></div>
+      </div>
+    </div>
+
+    <!-- INTERNSHIPS -->
+    <div class="page hidden" id="page-internships">
+      <div class="page-head">
+        <div class="eyebrow">03 — Positions</div>
+        <h1>Internships</h1>
+        <p>Required skills define what the engine looks for; capacity caps how many students each role can take.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Add an internship</h3>
+        <div class="form-grid">
+          <div><label>Company</label><input id="i-company" placeholder="e.g. NimbusTech"></div>
+          <div><label>Role title</label><input id="i-title" placeholder="Frontend Intern"></div>
+          <div><label>Capacity (seats)</label><input id="i-capacity" type="number" min="1" value="1"></div>
+          <div><label>Stipend (₹ / month)</label><input id="i-stipend" type="number" min="0" placeholder="15000"></div>
+          <div class="full"><label>Required skills (comma separated)</label><input id="i-skills" placeholder="React, JavaScript, CSS"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addInternship()">Add internship</button>
+      </div>
+
+      <div class="panel">
+        <h3>Open positions <span class="tag" id="internship-count-tag"></span></h3>
+        <div id="internships-table"></div>
+      </div>
+    </div>
+
+    <!-- MATCHING -->
+    <div class="page hidden" id="page-matching">
+      <div class="page-head">
+        <div class="eyebrow">04 — Engine</div>
+        <h1>Run matching</h1>
+        <p>The engine scores every student–internship pair on skill coverage, breadth of overlap, stated preference and CGPA, then runs a stable (deferred-acceptance) allocation so no student or internship would rather swap.</p>
+      </div>
+      <div class="panel">
+        <h3>Scoring weights <span class="tag">fixed for transparency</span></h3>
+        <table>
+          <tr><th>Factor</th><th>Weight</th><th>What it measures</th></tr>
+          <tr><td>Required-skill coverage</td><td><span class="weight-chip" style="background:var(--violet-soft); color:var(--violet);">60%</span></td><td>Share of the internship's required skills the student has</td></tr>
+          <tr><td>Overlap breadth (Jaccard)</td><td><span class="weight-chip" style="background:var(--blue-soft); color:var(--blue);">20%</span></td><td>How much the student's & role's skill sets overlap overall</td></tr>
+          <tr><td>Stated preference rank</td><td><span class="weight-chip" style="background:var(--sun-soft); color:#8A5E00;">15%</span></td><td>Bonus if the student ranked this internship highly</td></tr>
+          <tr><td>CGPA</td><td><span class="weight-chip" style="background:var(--mint-soft); color:var(--mint);">5%</span></td><td>Small tiebreaker among similarly-matched students</td></tr>
+        </table>
+      </div>
+      <div class="panel">
+        <h3>Run</h3>
+        <p class="small-note" id="matching-precheck">Add at least one student and one internship to run the engine.</p>
+        <button class="btn btn-primary" id="run-btn" onclick="runMatching()">Run AI matching</button>
+        <div id="engine-viz-holder"></div>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="page hidden" id="page-results">
+      <div class="page-head">
+        <div class="eyebrow">05 — Outcome</div>
+        <h1>Allocation results</h1>
+        <p>Final assignments from the last run. Export to Excel to share or archive.</p>
+      </div>
+      <div id="results-body">
+        <div class="empty"><div class="glyph">◇</div>No matching run yet — go to <b>Run Matching</b> first.</div>
+      </div>
+    </div>
+
+    <!-- DATA / EXCEL -->
+    <div class="page hidden" id="page-data">
+      <div class="page-head">
+        <div class="eyebrow">06 — Backend</div>
+        <h1>Excel backend</h1>
+        <p>This app uses Excel as its data store instead of a database — import a workbook to load students & internships, export any time to persist your work.</p>
+      </div>
+
+      <div class="panel">
+        <h3>Import workbook</h3>
+        <p class="small-note">Expects sheets named <b>Students</b> and <b>Internships</b>. Use "Download template" below to get the right column headers.</p>
+        <div class="file-drop" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          Click to choose a .xlsx file, or drag one here
+        </div>
+        <input type="file" id="file-input" accept=".xlsx,.xls" class="hidden">
+      </div>
+
+      <div class="panel">
+        <h3>Export</h3>
+        <div class="btn-row">
+          <button class="btn btn-ghost" onclick="downloadTemplate()">Download template (.xlsx)</button>
+          <button class="btn btn-ghost" onclick="exportData()">Export current data (.xlsx)</button>
+          <button class="btn btn-primary" onclick="exportResults()">Export allocation results (.xlsx)</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Reset</h3>
+        <p class="small-note">Clears all students, internships and results from this session.</p>
+        <button class="btn btn-danger" style="padding:9px 16px; font-size:13px;" onclick="resetAll()">Clear all data</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- State ---------------- */
+let students = [];
+let internships = [];
+let lastResults = null; // { allocations: [...], unallocatedStudents: [...] }
+let idCounter = 1;
+
+/* ---------------- Color system ---------------- */
+// Deterministic color per skill / person name, so "Python" and "Ananya Rao" always
+// render the same hue everywhere in the app.
+const SWATCHES = [
+  {bg:'#EFE7FF', text:'#6C3CE9', solid:'#6C3CE9'}, // violet
+  {bg:'#FFE7EA', text:'#E23A55', solid:'#FF5D73'}, // coral
+  {bg:'#FFF3D6', text:'#9A6B00', solid:'#FFB300'}, // sun
+  {bg:'#D9F7F1', text:'#00937E', solid:'#00B79A'}, // mint
+  {bg:'#E3EEFF', text:'#2C5FD9', solid:'#2C5FD9'}, // blue
+  {bg:'#FDE7FA', text:'#B23FCB', solid:'#D24FE0'}, // magenta
+  {bg:'#E7F7DA', text:'#4A8F1F', solid:'#63B22C'}, // green
+  {bg:'#FFE9D6', text:'#C2610C', solid:'#F08A2E'}, // orange
+];
+function hashStr(str){
+  let h = 0;
+  for(let i=0;i<str.length;i++){ h = str.charCodeAt(i) + ((h<<5)-h); h |= 0; }
+  return Math.abs(h);
+}
+function swatchFor(str){ return SWATCHES[hashStr(str||'?') % SWATCHES.length]; }
+function initials(name){
+  const parts = (name||'?').trim().split(/\s+/);
+  return ((parts[0]?.[0]||'') + (parts[1]?.[0]||'')).toUpperCase() || '?';
+}
+function avatarHTML(name){
+  const sw = swatchFor(name);
+  return `<span class="avatar" style="background:${sw.solid}">${initials(name)}</span>`;
+}
+function skillPillsHTML(skills){
+  return skills.map(sk=>{
+    const sw = swatchFor(norm(sk));
+    return `<span class="pill skill" style="background:${sw.bg}; color:${sw.text};">${sk}</span>`;
+  }).join('');
+}
+
+/* ---------------- Seed demo data ---------------- */
+function seed(){
+  students = [
+    {id: idCounter++, name:"Ananya Rao", email:"ananya@college.edu", cgpa:8.6, branch:"CSE", skills:["Python","SQL","Machine Learning","Pandas"], prefs:["Data Analyst Intern","ML Research Intern"]},
+    {id: idCounter++, name:"Rohan Mehta", email:"rohan@college.edu", cgpa:7.9, branch:"IT", skills:["React","JavaScript","CSS","HTML"], prefs:["Frontend Intern"]},
+    {id: idCounter++, name:"Divya Krishnan", email:"divya@college.edu", cgpa:9.1, branch:"CSE", skills:["Java","Spring Boot","SQL","System Design"], prefs:["Backend Intern","Frontend Intern"]},
+    {id: idCounter++, name:"Karthik Iyer", email:"karthik@college.edu", cgpa:7.2, branch:"ECE", skills:["Python","Data Analysis","Excel","SQL"], prefs:["Data Analyst Intern"]},
+    {id: idCounter++, name:"Sneha Pillai", email:"sneha@college.edu", cgpa:8.3, branch:"IT", skills:["React","Node.js","JavaScript","MongoDB"], prefs:["Frontend Intern","Backend Intern"]},
+    {id: idCounter++, name:"Arjun Nair", email:"arjun@college.edu", cgpa:6.8, branch:"CSE", skills:["C++","DSA","Python"], prefs:["ML Research Intern"]},
+  ];
+  internships = [
+    {id: idCounter++, company:"NimbusTech", title:"Frontend Intern", capacity:2, stipend:15000, skills:["React","JavaScript","CSS","HTML"]},
+    {id: idCounter++, company:"DataForge Analytics", title:"Data Analyst Intern", capacity:2, stipend:18000, skills:["Python","SQL","Data Analysis","Excel"]},
+    {id: idCounter++, company:"ByteCraft Labs", title:"Backend Intern", capacity:1, stipend:20000, skills:["Java","Spring Boot","SQL","System Design"]},
+    {id: idCounter++, company:"NeuralWorks AI", title:"ML Research Intern", capacity:1, stipend:22000, skills:["Python","Machine Learning","Pandas","Statistics"]},
+  ];
+}
+seed();
+
+/* ---------------- Utilities ---------------- */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=>t.classList.remove('show'), 2600);
+}
+function splitList(str){
+  return (str||"").split(",").map(s=>s.trim()).filter(Boolean);
+}
+function norm(s){ return s.toLowerCase().trim(); }
+
+/* ---------------- Confetti ---------------- */
+function burstConfetti(){
+  const colors = SWATCHES.map(s=>s.solid);
+  const count = 60;
+  for(let i=0;i<count;i++){
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    const color = colors[Math.floor(Math.random()*colors.length)];
+    piece.style.left = (Math.random()*100) + 'vw';
+    piece.style.background = color;
+    piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+    const duration = 2.4 + Math.random()*1.6;
+    piece.style.animationDuration = duration + 's';
+    piece.style.animationDelay = (Math.random()*0.3) + 's';
+    document.body.appendChild(piece);
+    setTimeout(()=>piece.remove(), (duration+0.5)*1000);
+  }
+}
+
+/* ---------------- Navigation ---------------- */
+function goTab(tab){
+  document.querySelectorAll('.page').forEach(p=>p.classList.add('hidden'));
+  document.getElementById('page-'+tab).classList.remove('hidden');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector(`.nav-item[data-tab="${tab}"]`).classList.add('active');
+  renderAll();
+}
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click', ()=>goTab(btn.dataset.tab));
+});
+
+/* ---------------- CRUD: Students ---------------- */
+function addStudent(){
+  const name = document.getElementById('s-name').value.trim();
+  const email = document.getElementById('s-email').value.trim();
+  const cgpa = parseFloat(document.getElementById('s-cgpa').value) || 0;
+  const branch = document.getElementById('s-branch').value.trim();
+  const skills = splitList(document.getElementById('s-skills').value);
+  const prefs = splitList(document.getElementById('s-prefs').value);
+  if(!name || skills.length===0){ toast("Name and at least one skill are required."); return; }
+  students.push({id: idCounter++, name, email, cgpa, branch, skills, prefs});
+  ['s-name','s-email','s-cgpa','s-branch','s-skills','s-prefs'].forEach(id=>document.getElementById(id).value='');
+  toast(`${name} added.`);
+  renderAll();
+}
+function removeStudent(id){
+  students = students.filter(s=>s.id!==id);
+  renderAll();
+}
+
+/* ---------------- CRUD: Internships ---------------- */
+function addInternship(){
+  const company = document.getElementById('i-company').value.trim();
+  const title = document.getElementById('i-title').value.trim();
+  const capacity = parseInt(document.getElementById('i-capacity').value) || 1;
+  const stipend = parseInt(document.getElementById('i-stipend').value) || 0;
+  const skills = splitList(document.getElementById('i-skills').value);
+  if(!company || !title || skills.length===0){ toast("Company, title and required skills are required."); return; }
+  internships.push({id: idCounter++, company, title, capacity, stipend, skills});
+  ['i-company','i-title','i-capacity','i-stipend','i-skills'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('i-capacity').value = 1;
+  toast(`${title} at ${company} added.`);
+  renderAll();
+}
+function removeInternship(id){
+  internships = internships.filter(i=>i.id!==id);
+  renderAll();
+}
+
+/* ---------------- Rendering ---------------- */
+function renderAll(){
+  renderDashboard();
+  renderStudents();
+  renderInternships();
+  renderMatchingPrecheck();
+  renderResults();
+}
+
+function renderDashboard(){
+  document.getElementById('stat-students').textContent = students.length;
+  document.getElementById('stat-internships').textContent = internships.reduce((a,i)=>a+i.capacity,0);
+  const allocated = lastResults ? lastResults.allocations.length : 0;
+  document.getElementById('stat-allocated').textContent = allocated;
+  document.getElementById('stat-rate').textContent = students.length ? Math.round(100*allocated/students.length)+'%' : '—';
+
+  const demand = {};
+  internships.forEach(i=> i.skills.forEach(sk=>{ const k=norm(sk); demand[k]=(demand[k]||0)+1; }));
+  const sorted = Object.entries(demand).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const holder = document.getElementById('skill-demand');
+  if(sorted.length===0){ holder.innerHTML = '<div class="empty">No internships posted yet.</div>'; return; }
+  const max = sorted[0][1];
+  holder.innerHTML = sorted.map(([sk,count])=>{
+    const sw = swatchFor(sk);
+    return `
+    <div style="margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+        <span style="text-transform:capitalize; display:flex; align-items:center; gap:7px;"><span style="width:9px;height:9px;border-radius:50%;background:${sw.solid};display:inline-block;"></span>${sk}</span>
+        <span class="mono" style="color:var(--ink-soft);">${count}</span>
+      </div>
+      <div class="score-bar"><div style="width:${(count/max*100)}%; background:${sw.solid};"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderStudents(){
+  document.getElementById('student-count-tag').textContent = students.length + (students.length===1?' student':' students');
+  const holder = document.getElementById('students-table');
+  if(students.length===0){ holder.innerHTML = '<div class="empty"><div class="glyph">◇</div>No students yet. Add one above, or import from Excel.</div>'; return; }
+  holder.innerHTML = `<table><tr><th>Name</th><th>Skills</th><th>CGPA</th><th>Preferences</th><th></th></tr>
+    ${students.map(s=>`<tr>
+      <td><div class="name-row">${avatarHTML(s.name)}<div><b>${s.name}</b><br><span style="color:var(--ink-soft); font-size:11.5px;">${s.email||''} ${s.branch? '· '+s.branch:''}</span></div></div></td>
+      <td>${skillPillsHTML(s.skills)}</td>
+      <td class="mono">${s.cgpa||'—'}</td>
+      <td style="font-size:12px; color:var(--ink-soft);">${s.prefs.length? s.prefs.join(' → '):'—'}</td>
+      <td><button class="btn-danger" onclick="removeStudent(${s.id})">Remove</button></td>
+    </tr>`).join('')}</table>`;
+}
+
+function renderInternships(){
+  document.getElementById('internship-count-tag').textContent = internships.length + (internships.length===1?' role':' roles');
+  const holder = document.getElementById('internships-table');
+  if(internships.length===0){ holder.innerHTML = '<div class="empty"><div class="glyph">◇</div>No internships yet. Add one above, or import from Excel.</div>'; return; }
+  holder.innerHTML = `<table><tr><th>Role</th><th>Required skills</th><th>Capacity</th><th>Stipend</th><th></th></tr>
+    ${internships.map(i=>{
+      const sw = swatchFor(i.title);
+      return `<tr>
+      <td><div class="name-row"><span class="avatar" style="background:${sw.solid}">${initials(i.company)}</span><div><b>${i.title}</b><br><span style="color:var(--ink-soft); font-size:11.5px;">${i.company}</span></div></div></td>
+      <td>${skillPillsHTML(i.skills)}</td>
+      <td class="mono">${i.capacity}</td>
+      <td class="mono">${i.stipend? '₹'+i.stipend.toLocaleString('en-IN'):'—'}</td>
+      <td><button class="btn-danger" onclick="removeInternship(${i.id})">Remove</button></td>
+    </tr>`;}).join('')}</table>`;
+}
+
+function renderMatchingPrecheck(){
+  const note = document.getElementById('matching-precheck');
+  const btn = document.getElementById('run-btn');
+  if(students.length===0 || internships.length===0){
+    note.textContent = "Add at least one student and one internship to run the engine.";
+    btn.disabled = true; btn.style.opacity = .5; btn.style.cursor='not-allowed';
+  } else {
+    note.textContent = `Ready — ${students.length} students competing for ${internships.reduce((a,i)=>a+i.capacity,0)} seats across ${internships.length} roles.`;
+    btn.disabled = false; btn.style.opacity = 1; btn.style.cursor='pointer';
+  }
+}
+
+/* ---------------- Scoring ---------------- */
+function scorePair(student, internship){
+  const sSkills = new Set(student.skills.map(norm));
+  const rSkills = new Set(internship.skills.map(norm));
+  let matched = 0;
+  rSkills.forEach(sk=>{ if(sSkills.has(sk)) matched++; });
+  const coverage = rSkills.size ? matched/rSkills.size : 0;
+  const union = new Set([...sSkills, ...rSkills]);
+  const jaccard = union.size ? matched/union.size : 0;
+
+  let prefBonus = 0;
+  const prefIndex = student.prefs.findIndex(p => norm(p)===norm(internship.title) || norm(p)===norm(internship.company+' '+internship.title));
+  if(prefIndex === 0) prefBonus = 15;
+  else if(prefIndex === 1) prefBonus = 10;
+  else if(prefIndex >= 2) prefBonus = 5;
+
+  const cgpaBonus = (student.cgpa||0)/10 * 5;
+
+  const score = coverage*60 + jaccard*20 + prefBonus + cgpaBonus;
+  return { score: Math.round(score*10)/10, coverage, matched, required:rSkills.size, missing:[...rSkills].filter(sk=>!sSkills.has(sk)) };
+}
+
+/* ---------------- Stable matching (student-proposing deferred acceptance) ---------------- */
+function runMatching(){
+  if(students.length===0 || internships.length===0){ toast("Add students and internships first."); return; }
+
+  // Precompute scores
+  const scoreMap = {}; // scoreMap[studentId][internshipId] = detail
+  students.forEach(s=>{
+    scoreMap[s.id] = {};
+    internships.forEach(i=>{
+      scoreMap[s.id][i.id] = scorePair(s,i);
+    });
+  });
+
+  // Preference lists: each student ranks internships by score desc; each internship ranks students by score desc
+  const studentPref = {};
+  students.forEach(s=>{
+    studentPref[s.id] = internships.map(i=>i.id).sort((a,b)=>scoreMap[s.id][b].score - scoreMap[s.id][a].score);
+  });
+  const internshipRank = {}; // internshipRank[internshipId][studentId] = rank (lower better)
+  internships.forEach(i=>{
+    const sorted = students.map(s=>s.id).sort((a,b)=>scoreMap[b][i.id].score - scoreMap[a][i.id].score);
+    internshipRank[i.id] = {};
+    sorted.forEach((sid,idx)=>{ internshipRank[i.id][sid] = idx; });
+  });
+
+  const capacityLeft = {}; internships.forEach(i=>capacityLeft[i.id]=i.capacity);
+  const currentMatches = {}; internships.forEach(i=>currentMatches[i.id]=[]); // array of studentIds
+  const pointer = {}; students.forEach(s=>pointer[s.id]=0);
+  const engaged = {}; // studentId -> internshipId or null
+
+  let free = students.map(s=>s.id);
+  const steps = []; // for viz log
+
+  let guard = 0;
+  while(free.length > 0 && guard < 5000){
+    guard++;
+    const sid = free.shift();
+    const prefs = studentPref[sid];
+    if(pointer[sid] >= prefs.length){ engaged[sid] = null; continue; } // exhausted list, stays unmatched
+    const iid = prefs[pointer[sid]];
+    pointer[sid]++;
+
+    if(currentMatches[iid].length < capacityLeft[iid]){
+      currentMatches[iid].push(sid);
+      engaged[sid] = iid;
+      steps.push({sid, iid, action:'tentative'});
+    } else {
+      // find worst current match for this internship
+      let worst = currentMatches[iid][0];
+      currentMatches[iid].forEach(cand=>{ if(internshipRank[iid][cand] > internshipRank[iid][worst]) worst = cand; });
+      if(internshipRank[iid][sid] < internshipRank[iid][worst]){
+        // sid is preferred over worst -> swap
+        currentMatches[iid] = currentMatches[iid].filter(x=>x!==worst);
+        currentMatches[iid].push(sid);
+        engaged[sid] = iid;
+        engaged[worst] = null;
+        free.push(worst);
+        steps.push({sid, iid, action:'swap', bumped:worst});
+      } else {
+        free.push(sid); // rejected, try next preference next loop... but we already advanced pointer, so re-push to try next pref
+        steps.push({sid, iid, action:'reject'});
+      }
+    }
+  }
+
+  // Build allocations list
+  const allocations = [];
+  internships.forEach(i=>{
+    currentMatches[i.id].forEach(sid=>{
+      const student = students.find(s=>s.id===sid);
+      const detail = scoreMap[sid][i.id];
+      allocations.push({
+        studentId: sid, studentName: student.name,
+        internshipId: i.id, company: i.company, title: i.title,
+        score: detail.score, coverage: Math.round(detail.coverage*100),
+        matchedSkills: detail.matched, requiredSkills: detail.required, missing: detail.missing
+      });
+    });
+  });
+  allocations.sort((a,b)=>b.score - a.score);
+
+  const allocatedIds = new Set(allocations.map(a=>a.studentId));
+  const unallocatedStudents = students.filter(s=>!allocatedIds.has(s.id)).map(s=>s.name);
+
+  lastResults = { allocations, unallocatedStudents, steps };
+  toast(`Matching complete — ${allocations.length} of ${students.length} students allocated.`);
+  if(allocations.length > 0) burstConfetti();
+  animateEngine(steps.filter(s=>s.action!=='reject').slice(0,10));
+  goTab('results');
+}
+
+function animateEngine(steps){
+  const holder = document.getElementById('engine-viz-holder');
+  if(steps.length===0){ holder.innerHTML=''; return; }
+  holder.innerHTML = `<div class="engine-viz">
+    <div class="node-col"><div class="col-label">Students</div>${steps.map((s,idx)=>{
+      const stu = students.find(x=>x.id===s.sid);
+      const sw = swatchFor(stu?.name || '?');
+      return `<div class="node" style="animation-delay:${idx*80}ms; background:${sw.bg}; border-color:${sw.solid}33; color:${sw.text};">${stu?.name || ''}</div>`;
+    }).join('')}</div>
+    <div class="arrow-col">→</div>
+    <div class="node-col"><div class="col-label">Assigned to</div>${steps.map((s,idx)=>`<div class="node" style="animation-delay:${idx*80+40}ms; background:var(--mint-soft); border-color:var(--mint); color:var(--mint);">${internships.find(x=>x.id===s.iid)?.title || ''}</div>`).join('')}</div>
+  </div>`;
+}
+
+/* ---------------- Results rendering ---------------- */
+function renderResults(){
+  const holder = document.getElementById('results-body');
+  if(!lastResults){
+    holder.innerHTML = '<div class="empty"><div class="glyph">◇</div>No matching run yet — go to <b>Run Matching</b> first.</div>';
+    return;
+  }
+  const {allocations, unallocatedStudents} = lastResults;
+  let html = `<div class="panel"><h3>Allocated <span class="tag">${allocations.length} of ${students.length} students</span></h3>`;
+  if(allocations.length===0){
+    html += `<div class="empty">No allocations produced.</div>`;
+  } else {
+    html += `<table><tr><th>Student</th><th>Internship</th><th>Match score</th><th>Skill coverage</th><th>Status</th></tr>`;
+    html += allocations.map(a=>`<tr>
+      <td><div class="name-row">${avatarHTML(a.studentName)}<b>${a.studentName}</b></div></td>
+      <td>${a.title}<br><span style="color:var(--ink-soft); font-size:11.5px;">${a.company}</span></td>
+      <td class="mono">${a.score}</td>
+      <td>${a.matchedSkills}/${a.requiredSkills} required
+        <div class="score-bar"><div style="width:${a.coverage}%"></div></div>
+      </td>
+      <td><span class="badge-status badge-allocated">Allocated</span></td>
+    </tr>`).join('');
+    html += `</table>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="panel"><h3>Unallocated <span class="tag">${unallocatedStudents.length} students</span></h3>`;
+  if(unallocatedStudents.length===0){
+    html += `<div class="empty">Everyone was matched to a position.</div>`;
+  } else {
+    html += `<table><tr><th>Student</th><th>Status</th></tr>` +
+      unallocatedStudents.map(n=>`<tr><td><div class="name-row">${avatarHTML(n)}${n}</div></td><td><span class="badge-status badge-unallocated">Unallocated</span></td></tr>`).join('') +
+      `</table><p class="small-note">These students' preferred roles were full, or their skills didn't sufficiently match any open internship.</p>`;
+  }
+  html += `</div>`;
+  holder.innerHTML = html;
+}
+
+/* ---------------- Excel backend ---------------- */
+function downloadTemplate(){
+  const wb = XLSX.utils.book_new();
+  const studentSheet = XLSX.utils.json_to_sheet([
+    {Name:"Ananya Rao", Email:"ananya@college.edu", CGPA:8.6, Branch:"CSE", Skills:"Python, SQL, Machine Learning", Preferences:"Data Analyst Intern, ML Research Intern"}
+  ]);
+  const internSheet = XLSX.utils.json_to_sheet([
+    {Company:"NimbusTech", Title:"Frontend Intern", Capacity:2, Stipend:15000, RequiredSkills:"React, JavaScript, CSS"}
+  ]);
+  XLSX.utils.book_append_sheet(wb, studentSheet, "Students");
+  XLSX.utils.book_append_sheet(wb, internSheet, "Internships");
+  XLSX.writeFile(wb, "internship_allocation_template.xlsx");
+  toast("Template downloaded.");
+}
+
+function exportData(){
+  const wb = XLSX.utils.book_new();
+  const studentRows = students.map(s=>({Name:s.name, Email:s.email, CGPA:s.cgpa, Branch:s.branch, Skills:s.skills.join(", "), Preferences:s.prefs.join(", ")}));
+  const internRows = internships.map(i=>({Company:i.company, Title:i.title, Capacity:i.capacity, Stipend:i.stipend, RequiredSkills:i.skills.join(", ")}));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), "Students");
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(internRows), "Internships");
+  XLSX.writeFile(wb, "internship_allocation_data.xlsx");
+  toast("Data exported.");
+}
+
+function exportResults(){
+  if(!lastResults){ toast("Run matching first."); return; }
+  const wb = XLSX.utils.book_new();
+  const allocRows = lastResults.allocations.map(a=>({
+    Student:a.studentName, Company:a.company, Role:a.title, MatchScore:a.score,
+    SkillsMatched: `${a.matchedSkills}/${a.requiredSkills}`, Status:"Allocated"
+  }));
+  lastResults.unallocatedStudents.forEach(n=>allocRows.push({Student:n, Company:"", Role:"", MatchScore:"", SkillsMatched:"", Status:"Unallocated"}));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allocRows), "Allocations");
+  XLSX.writeFile(wb, "allocation_results.xlsx");
+  toast("Results exported.");
+}
+
+function handleImportFile(file){
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    try{
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array'});
+      let importedStudents = 0, importedInternships = 0;
+
+      if(wb.Sheets['Students']){
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets['Students']);
+        rows.forEach(r=>{
+          const name = r.Name || r.name;
+          if(!name) return;
+          students.push({
+            id: idCounter++,
+            name: String(name),
+            email: String(r.Email||r.email||''),
+            cgpa: parseFloat(r.CGPA||r.cgpa) || 0,
+            branch: String(r.Branch||r.branch||''),
+            skills: splitList(String(r.Skills||r.skills||'')),
+            prefs: splitList(String(r.Preferences||r.preferences||''))
+          });
+          importedStudents++;
+        });
+      }
+      if(wb.Sheets['Internships']){
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets['Internships']);
+        rows.forEach(r=>{
+          const title = r.Title || r.title;
+          if(!title) return;
+          internships.push({
+            id: idCounter++,
+            company: String(r.Company||r.company||''),
+            title: String(title),
+            capacity: parseInt(r.Capacity||r.capacity) || 1,
+            stipend: parseInt(r.Stipend||r.stipend) || 0,
+            skills: splitList(String(r.RequiredSkills||r.requiredskills||r.Skills||''))
+          });
+          importedInternships++;
+        });
+      }
+      toast(`Imported ${importedStudents} students, ${importedInternships} internships.`);
+      renderAll();
+    }catch(err){
+      toast("Could not read that file — check it matches the template.");
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+document.getElementById('file-input').addEventListener('change', (e)=>{
+  if(e.target.files[0]) handleImportFile(e.target.files[0]);
+});
+const dropZone = document.getElementById('drop-zone');
+dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.style.borderColor='var(--violet)'; });
+dropZone.addEventListener('dragleave', e=>{ dropZone.style.borderColor='var(--line)'; });
+dropZone.addEventListener('drop', e=>{
+  e.preventDefault(); dropZone.style.borderColor='var(--line)';
+  if(e.dataTransfer.files[0]) handleImportFile(e.dataTransfer.files[0]);
+});
+
+function resetAll(){
+  if(!confirm("Clear all students, internships and results?")) return;
+  students = []; internships = []; lastResults = null;
+  document.getElementById('engine-viz-holder').innerHTML = '';
+  toast("All data cleared.");
+  renderAll();
+}
+
+/* ---------------- Init ---------------- */
+renderAll();
+
+/* ---------------- PWA: service worker registration ---------------- */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(err => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
+</script>
+</body>
+</html>
